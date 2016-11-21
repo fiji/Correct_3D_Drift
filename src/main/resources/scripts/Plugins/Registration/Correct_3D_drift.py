@@ -28,24 +28,6 @@
 # Operates on a virtual stack.
 # 23/1/13 -
 # added user dialog to make use of virtual stack an option
-# 10/01/16-
-# Christian Tischer (tischitischer@gmail.com)
-# major changes and additions:
-# - it now also works for 2D time-series (used to be 3D only)
-# - option: measure drift on multiple timescales (this allows to also find slow drift components of less than 1 pixel per frame)
-# - option: correct sub-pixel drift computing the shifted images using TransformJ
-# - option: if a ROI is put on the image, only this part of the image is considered for drift computation
-#           the ROI is moved along with the detected drift thereby tracking the structure of interest
-# - macro recording is compatible with previous version
-
-# Robert Bryson-Richardson and Albert Cardona 2010-10-08 at Estoril, Portugal
-# EMBO Developmental Imaging course by Gabriel Martins
-#
-# Register time frames (stacks) to each other using Stitching_3D library
-# to compute translations only, in all 3 spatial axes.
-# Operates on a virtual stack.
-# 23/1/13 -
-# added user dialog to make use of virtual stack an option
 # 10/01/16 -
 # Christian Tischer (tischitischer@gmail.com)
 # major changes and additions:
