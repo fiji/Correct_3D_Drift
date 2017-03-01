@@ -88,8 +88,8 @@
 		<url>https://github.com/fiji/Correct_3D_Drift/issues</url>
 	</issueManagement>
 	<ciManagement>
-		<system>Jenkins</system>
-		<url>http://jenkins.imagej.net/job/Correct_3D_Drift/</url>
+		<system>Travis CI</system>
+		<url>https://travis-ci.org/fiji/Correct_3D_Drift</url>
 	</ciManagement>
 
 	<properties>
