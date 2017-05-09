@@ -562,13 +562,15 @@ def run():
   if imp is None:
     return
   if 1 == imp.getNFrames():
-    print "There is only one time frame!"
+    IJ.showMessage("Cannot register because there is only one time frame.\nPlease check [Image > Properties...].")
     return
 
   options = getOptions(imp)
   if options is not None:
     channel, virtual, multi_time_scale, subpixel, process, only_compute = options
-    
+  else:
+    return # user pressed Cancel
+  
   if virtual is True:
     dc = DirectoryChooser("Choose target folder to save image sequence")
     target_folder = dc.getDirectory()
