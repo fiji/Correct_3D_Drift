@@ -123,7 +123,7 @@ def extract_frame(imp, frame, channel):
   return vs
 
 
-def extract_frame_process_roi(imp, frame, channel, process, roi):
+def extract_frame_process_roi(imp, frame, channel, process, background, roi):
   # extract frame and channel 
   imp_frame = ImagePlus("", extract_frame(imp, frame, channel)).duplicate()
   # check for roi and crop
@@ -131,10 +131,15 @@ def extract_frame_process_roi(imp, frame, channel, process, roi):
     #print roi.getBounds()
     imp_frame.setRoi(roi)
     IJ.run(imp_frame, "Crop", "")
-  # process  
+  # enhance edges  
   if process:
     IJ.run(imp_frame, "Mean 3D...", "x=1 y=1 z=0");
     IJ.run(imp_frame, "Find Edges", "stack");
+  # subtract background  
+  if background > 0:
+    IJ.log("Subtracting "+str(background));
+    IJ.run(imp_frame, "Subtract...", "value="+str(background)+" stack");
+
   # return
   return imp_frame
 
@@ -193,7 +198,7 @@ def shift_roi(imp, roi, dr):
     shifted_roi = Roi(sx, sy, r.width, r.height)
     return shifted_roi   
   
-def compute_and_update_frame_translations_dt(imp, channel, dt, process, shifts = None):
+def compute_and_update_frame_translations_dt(imp, channel, dt, process, background, shifts = None):
   """ imp contains a hyper virtual stack, and we want to compute
   the X,Y,Z translation between every t and t+dt time points in it
   using the given preferred channel. 
@@ -218,10 +223,10 @@ def compute_and_update_frame_translations_dt(imp, channel, dt, process, shifts =
     IJ.log("      between frames "+str(t-dt+1)+" and "+str(t+1))      
     # get (cropped and processed) image at t-dt
     roi1 = shift_roi(imp, roi, shifts[t-dt])
-    imp1 = extract_frame_process_roi(imp, t+1-dt, channel, process, roi1)
+    imp1 = extract_frame_process_roi(imp, t+1-dt, channel, process, background, roi1)
     # get (cropped and processed) image at t-dt
     roi2 = shift_roi(imp, roi, shifts[t])
-    imp2 = extract_frame_process_roi(imp, t+1, channel, process, roi2)
+    imp2 = extract_frame_process_roi(imp, t+1, channel, process, background, roi2)
     if roi:
       print "ROI at frame",t-dt+1,"is",roi1.getBounds()   
       print "ROI at frame",t+1,"is",roi2.getBounds()   
@@ -524,6 +529,7 @@ def getOptions(imp):
   gd.addCheckbox("Multi_time_scale computation for enhanced detection of slow drifts?", False)
   gd.addCheckbox("Sub_pixel drift correction (possibly needed for slow drifts)?", False)
   gd.addCheckbox("Edge_enhance images for possibly improved drift detection?", False)
+  gd.addNumericField("Only consider pixels with values larger than:", 0, 0)
   gd.addCheckbox("Use virtualstack for saving the results to disk to save RAM?", False)
   gd.addCheckbox("Only compute drift vectors?", False)
   gd.addMessage("If you put a ROI, drift will only be computed in this region;\n the ROI will be moved along with the drift to follow your structure of interest.")
@@ -534,9 +540,10 @@ def getOptions(imp):
   multi_time_scale = gd.getNextBoolean()
   subpixel = gd.getNextBoolean()
   process = gd.getNextBoolean()
+  background = gd.getNextNumber()
   virtual = gd.getNextBoolean()
   only_compute = gd.getNextBoolean()
-  return channel, virtual, multi_time_scale, subpixel, process, only_compute
+  return channel, virtual, multi_time_scale, subpixel, process, background, only_compute
 
 def save_shifts(shifts, roi):
   sd = SaveDialog('please select shift file for saving', 'shifts', '.txt')
@@ -567,7 +574,7 @@ def run():
 
   options = getOptions(imp)
   if options is not None:
-    channel, virtual, multi_time_scale, subpixel, process, only_compute = options
+    channel, virtual, multi_time_scale, subpixel, process, background, only_compute = options
   else:
     return # user pressed Cancel
   
@@ -585,7 +592,7 @@ def run():
   IJ.log("  computing drifts..."); print("\nCOMPUTING SHIFTS:")
 
   IJ.log("    at frame shifts of 1"); 
-  dt = 1; shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process)
+  dt = 1; shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background)
   
   # multi-time-scale computation
   if multi_time_scale is True:
@@ -597,10 +604,10 @@ def run():
     for dt in dts:
       if dt < dt_max:
         IJ.log("    at frame shifts of "+str(dt)) 
-        shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, shifts)
+        shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background, shifts)
       else: 
         IJ.log("    at frame shifts of "+str(dt_max));
-        shifts = compute_and_update_frame_translations_dt(imp, channel, dt_max, process, shifts)
+        shifts = compute_and_update_frame_translations_dt(imp, channel, dt_max, process, background, shifts)
         break
 
   # invert measured shifts to make them the correction
