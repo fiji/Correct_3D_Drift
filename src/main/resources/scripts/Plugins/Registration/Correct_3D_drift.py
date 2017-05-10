@@ -68,7 +68,7 @@ def translate_single_stack_using_imglib2(imp, dx, dy, dz):
   #   conversion into float is necessary due to "overflow of n-linear interpolation due to accuracy limits of unsigned bytes"
   #   see: https://github.com/fiji/fiji/issues/136#issuecomment-173831951
   img = ImagePlusImgs.from(imp.duplicate())
-  extended = Views.extendBorder(img)
+  extended = Views.extendZero(img)
   converted = Converters.convert(extended, RealFloatSamplerConverter())
   interpolant = Views.interpolate(converted, NLinearInterpolatorFactory())
   
