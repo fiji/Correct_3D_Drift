@@ -111,21 +111,21 @@ def compute_stitch(imp1, imp2):
     p3 = [p[0],p[1],0]
   return Point3i(p3)
 
-def extract_frame(imp, frame, channel):
+def extract_frame(imp, frame, channel, z_min, z_max):
   """ From a VirtualStack that is a hyperstack, contained in imp,
   extract the timepoint frame as an ImageStack, and return it.
   It will do so only for the given channel. """
   stack = imp.getStack() # multi-time point virtual stack
-  vs = ImageStack(imp.width, imp.height, None)
-  for s in range(1, imp.getNSlices()+1):
+  stack2 = ImageStack(imp.width, imp.height, None)
+  for s in range(int(z_min), int(z_max)+1):
     i = imp.getStackIndex(channel, s, frame)  
-    vs.addSlice(str(s), stack.getProcessor(i))
-  return vs
+    stack2.addSlice(str(s), stack.getProcessor(i))
+  return stack2
 
 
-def extract_frame_process_roi(imp, frame, channel, process, background, roi):
+def extract_frame_process_roi(imp, frame, channel, process, background, roi, z_min, z_max):
   # extract frame and channel 
-  imp_frame = ImagePlus("", extract_frame(imp, frame, channel)).duplicate()
+  imp_frame = ImagePlus("", extract_frame(imp, frame, channel, z_min, z_max)).duplicate()
   # check for roi and crop
   if roi != None:
     #print roi.getBounds()
@@ -198,7 +198,7 @@ def shift_roi(imp, roi, dr):
     shifted_roi = Roi(sx, sy, r.width, r.height)
     return shifted_roi   
   
-def compute_and_update_frame_translations_dt(imp, channel, dt, process, background, shifts = None):
+def compute_and_update_frame_translations_dt(imp, channel, dt, process, background, z_min, z_max, shifts = None):
   """ imp contains a hyper virtual stack, and we want to compute
   the X,Y,Z translation between every t and t+dt time points in it
   using the given preferred channel. 
@@ -208,8 +208,8 @@ def compute_and_update_frame_translations_dt(imp, channel, dt, process, backgrou
   nt = imp.getNFrames()
   # get roi (could be None)
   roi = imp.getRoi()
-  if roi:
-    print "ROI is at", roi.getBounds()   
+  #if roi:
+  #  print "ROI is at", roi.getBounds()   
   # init shifts
   if shifts == None:
     shifts = []
@@ -223,24 +223,24 @@ def compute_and_update_frame_translations_dt(imp, channel, dt, process, backgrou
     IJ.log("      between frames "+str(t-dt+1)+" and "+str(t+1))      
     # get (cropped and processed) image at t-dt
     roi1 = shift_roi(imp, roi, shifts[t-dt])
-    imp1 = extract_frame_process_roi(imp, t+1-dt, channel, process, background, roi1)
+    imp1 = extract_frame_process_roi(imp, t+1-dt, channel, process, background, roi1, z_min, z_max)
     # get (cropped and processed) image at t-dt
     roi2 = shift_roi(imp, roi, shifts[t])
-    imp2 = extract_frame_process_roi(imp, t+1, channel, process, background, roi2)
-    if roi:
-      print "ROI at frame",t-dt+1,"is",roi1.getBounds()   
-      print "ROI at frame",t+1,"is",roi2.getBounds()   
+    imp2 = extract_frame_process_roi(imp, t+1, channel, process, background, roi2, z_min, z_max)
+    #if roi:
+    #  print "ROI at frame",t-dt+1,"is",roi1.getBounds()   
+    #  print "ROI at frame",t+1,"is",roi2.getBounds()   
     # compute shift
     local_new_shift = compute_stitch(imp2, imp1)
     if roi: # total shift is shift of rois plus measured drift
-      print "correcting measured drift of",local_new_shift,"for roi shift:",shift_between_rois(roi2, roi1)
+      #print "correcting measured drift of",local_new_shift,"for roi shift:",shift_between_rois(roi2, roi1)
       local_new_shift = add_Point3f(local_new_shift, shift_between_rois(roi2, roi1))
     # determine the shift that we knew alrady
     local_shift = subtract_Point3f(shifts[t],shifts[t-dt])
     # compute difference between new and old measurement (which come from different dt)   
     add_shift = subtract_Point3f(local_new_shift,local_shift)
-    print "++ old shift between %s and %s: dx=%s, dy=%s, dz=%s" % (int(t-dt+1),int(t+1),local_shift.x,local_shift.y,local_shift.z)
-    print "++ add shift between %s and %s: dx=%s, dy=%s, dz=%s" % (int(t-dt+1),int(t+1),add_shift.x,add_shift.y,add_shift.z)
+    #print "++ old shift between %s and %s: dx=%s, dy=%s, dz=%s" % (int(t-dt+1),int(t+1),local_shift.x,local_shift.y,local_shift.z)
+    #print "++ add shift between %s and %s: dx=%s, dy=%s, dz=%s" % (int(t-dt+1),int(t+1),add_shift.x,add_shift.y,add_shift.z)
     # update shifts from t-dt to the end (assuming that the measured local shift will presist till the end)
     for i,tt in enumerate(range(t-dt,nt)):
       # for i>dt below expression basically is a linear drift predicition for the frames at tt>t
@@ -249,7 +249,7 @@ def compute_and_update_frame_translations_dt(imp, channel, dt, process, backgrou
       shifts[tt].x += 1.0*i/dt * add_shift.x
       shifts[tt].y += 1.0*i/dt * add_shift.y
       shifts[tt].z += 1.0*i/dt * add_shift.z
-      print "updated shift till frame",tt+1,"is",shifts[tt].x,shifts[tt].y,shifts[tt].z
+      #print "updated shift till frame",tt+1,"is",shifts[tt].x,shifts[tt].y,shifts[tt].z
     IJ.showProgress(1.0*t/(nt+1))
   
   IJ.showProgress(1)
@@ -337,7 +337,7 @@ def register_hyperstack(imp, channel, shifts, target_folder, virtual):
  
     shift = shifts[frame-1]
     
-    print "frame",frame,"correcting drift",-shift.x-minx,-shift.y-miny,-shift.z-minz
+    #print "frame",frame,"correcting drift",-shift.x-minx,-shift.y-miny,-shift.z-minz
     IJ.log("    frame "+str(frame)+" correcting drift "+str(-shift.x-minx)+","+str(-shift.y-miny)+","+str(-shift.z-minz))
     
     fr = "t" + zero_pad(frame, len(str(imp.getNFrames())))
@@ -427,7 +427,7 @@ def register_hyperstack_subpixel(imp, channel, shifts, target_folder, virtual):
   height = int(maxy - miny + imp.height)
   slices = int(maxz - minz + imp.getNSlices())
 
-  print "New dimensions:", width, height, slices
+  #print "New dimensions:", width, height, slices
     
   # prepare stack for final results
   stack = imp.getStack()
@@ -452,7 +452,7 @@ def register_hyperstack_subpixel(imp, channel, shifts, target_folder, virtual):
     
     # get and report current shift
     shift = shifts[frame-1]
-    print "frame",frame,"correcting drift",-shift.x-minx,-shift.y-miny,-shift.z-minz
+    #print "frame",frame,"correcting drift",-shift.x-minx,-shift.y-miny,-shift.z-minz
     IJ.log("    frame "+str(frame)+" correcting drift "+str(round(-shift.x-minx,2))+","+str(round(-shift.y-miny,2))+","+str(round(-shift.z-minz,2)))
 
     # loop across channels
@@ -530,6 +530,8 @@ def getOptions(imp):
   gd.addCheckbox("Sub_pixel drift correction (possibly needed for slow drifts)?", False)
   gd.addCheckbox("Edge_enhance images for possibly improved drift detection?", False)
   gd.addNumericField("Only consider pixels with values larger than:", 0, 0)
+  gd.addNumericField("Lowest z plane to take into account:", 1, 0)
+  gd.addNumericField("Highest z plane to take into account:", imp.getNSlices(), 0)
   gd.addCheckbox("Use virtualstack for saving the results to disk to save RAM?", False)
   gd.addCheckbox("Only compute drift vectors?", False)
   gd.addMessage("If you put a ROI, drift will only be computed in this region;\n the ROI will be moved along with the drift to follow your structure of interest.")
@@ -541,9 +543,11 @@ def getOptions(imp):
   subpixel = gd.getNextBoolean()
   process = gd.getNextBoolean()
   background = gd.getNextNumber()
+  z_min = gd.getNextNumber()
+  z_max = gd.getNextNumber()
   virtual = gd.getNextBoolean()
   only_compute = gd.getNextBoolean()
-  return channel, virtual, multi_time_scale, subpixel, process, background, only_compute
+  return channel, virtual, multi_time_scale, subpixel, process, background, z_min, z_max, only_compute
 
 def save_shifts(shifts, roi):
   sd = SaveDialog('please select shift file for saving', 'shifts', '.txt')
@@ -574,9 +578,17 @@ def run():
 
   options = getOptions(imp)
   if options is not None:
-    channel, virtual, multi_time_scale, subpixel, process, background, only_compute = options
+    channel, virtual, multi_time_scale, subpixel, process, background, z_min, z_max, only_compute = options
   else:
     return # user pressed Cancel
+
+  if z_min < 1:
+    IJ.showMessage("The minimal z plane must be >=1.")
+    return
+    
+  if z_max > imp.getNSlices():
+    IJ.showMessage("Your image only has "+str(imp.getNSlices())+" z-planes, please adapt your z-range.")
+    return
   
   if virtual is True:
     dc = DirectoryChooser("Choose target folder to save image sequence")
@@ -589,10 +601,10 @@ def run():
     target_folder = None 
 
   # compute shifts
-  IJ.log("  computing drifts..."); print("\nCOMPUTING SHIFTS:")
+  IJ.log("  computing drifts..."); #print("\nCOMPUTING SHIFTS:")
 
   IJ.log("    at frame shifts of 1"); 
-  dt = 1; shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background)
+  dt = 1; shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background, z_min, z_max)
   
   # multi-time-scale computation
   if multi_time_scale is True:
@@ -604,21 +616,21 @@ def run():
     for dt in dts:
       if dt < dt_max:
         IJ.log("    at frame shifts of "+str(dt)) 
-        shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background, shifts)
+        shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background, z_min, z_max, shifts)
       else: 
         IJ.log("    at frame shifts of "+str(dt_max));
-        shifts = compute_and_update_frame_translations_dt(imp, channel, dt_max, process, background, shifts)
+        shifts = compute_and_update_frame_translations_dt(imp, channel, dt_max, process, background, z_min, z_max, shifts)
         break
 
   # invert measured shifts to make them the correction
   shifts = invert_shifts(shifts)
-  print(shifts)
+  #print(shifts)
   
   
   # apply shifts
   if not only_compute:
     
-    IJ.log("  applying shifts..."); print("\nAPPLYING SHIFTS:")
+    IJ.log("  applying shifts..."); #print("\nAPPLYING SHIFTS:")
     
     if subpixel:
       registered_imp = register_hyperstack_subpixel(imp, channel, shifts, target_folder, virtual)
