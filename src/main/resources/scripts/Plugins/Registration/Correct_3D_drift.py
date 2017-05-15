@@ -131,14 +131,14 @@ def extract_frame_process_roi(imp, frame, channel, process, background, roi):
     #print roi.getBounds()
     imp_frame.setRoi(roi)
     IJ.run(imp_frame, "Crop", "")
+  # subtract background  
+  if background > 0:
+    #IJ.log("Subtracting "+str(background));
+    IJ.run(imp_frame, "Subtract...", "value="+str(background)+" stack");
   # enhance edges  
   if process:
     IJ.run(imp_frame, "Mean 3D...", "x=1 y=1 z=0");
     IJ.run(imp_frame, "Find Edges", "stack");
-  # subtract background  
-  if background > 0:
-    IJ.log("Subtracting "+str(background));
-    IJ.run(imp_frame, "Subtract...", "value="+str(background)+" stack");
 
   # return
   return imp_frame
