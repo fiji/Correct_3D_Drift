@@ -568,7 +568,7 @@ def save_shifts(shifts, roi):
 def run():
 
   IJ.log("Correct_3D_Drift")
-    
+
   imp = IJ.getImage()
   if imp is None:
     return
@@ -637,23 +637,17 @@ def run():
     else:
       shifts = convert_shifts_to_integer(shifts)
       registered_imp = register_hyperstack(imp, channel, shifts, target_folder, virtual)
-    
-    
+      
     if virtual is True:
       if 1 == imp.getNChannels():
         ip=imp.getProcessor()
         ip2=registered_imp.getProcessor()
         ip2.setColorModel(ip.getCurrentColorModel())
-        registered_imp.show()
       else:
     	registered_imp.copyLuts(imp)
-    	registered_imp.show()
     else:
-      if 1 ==imp.getNChannels():
-        registered_imp.show()
-      else:
+      if imp.getNChannels() > 1:
         registered_imp.copyLuts(imp)
-        registered_imp.show()
   
     registered_imp.show()
   
