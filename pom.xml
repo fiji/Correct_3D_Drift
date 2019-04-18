@@ -15,7 +15,7 @@
 
 	<name>Correct 3D Drift</name>
 	<description>Script to register time frames (stacks) to each other.</description>
-	<url>http://imagej.net/Correct_3D_Drift</url>
+	<url>https://imagej.net/Correct_3D_Drift</url>
 	<inceptionYear>2010</inceptionYear>
 	<organization>
 		<name>Fiji</name>
@@ -45,7 +45,7 @@
 		<developer>
 			<id>ctrueden</id>
 			<name>Curtis Rueden</name>
-			<url>http://imagej.net/User:Rueden</url>
+			<url>https://imagej.net/User:Rueden</url>
 			<roles>
 				<role>maintainer</role>
 			</roles>
@@ -54,18 +54,18 @@
 	<contributors>
 		<contributor>
 			<name>Albert Cardona</name>
-			<url>http://imagej.net/User:Albertcardona</url>
+			<url>https://imagej.net/User:Albertcardona</url>
 			<roles><role>founder</role></roles>
 			<properties><id>acardona</id></properties>
 		</contributor>
 		<contributor>
 			<name>Robert Bryson-Richardson</name>
-			<url>http://imagej.net/User:Robertbr</url>
+			<url>https://imagej.net/User:Robertbr</url>
 			<properties><id>robertb-r</id></properties>
 		</contributor>
 		<contributor>
 			<name>Jan Eglinger</name>
-			<url>http://imagej.net/User:Eglinger</url>
+			<url>https://imagej.net/User:Eglinger</url>
 			<properties><id>imagejan</id></properties>
 		</contributor>
 	</contributors>
@@ -73,7 +73,7 @@
 	<mailingLists>
 		<mailingList>
 			<name>Image.sc Forum</name>
-			<archive>https://forum.image.sc/</archive>
+			<archive>https://forum.image.sc/tags/fiji</archive>
 		</mailingList>
 	</mailingLists>
 
