@@ -112,7 +112,7 @@ def compute_shift(imp1, imp2):
     p3 = p
   elif len(p)==2: # 2D data: add zero shift for z
     p3 = [p[0],p[1],0]
-  return Point3i(p3)
+  return p3
 
 def extract_frame(imp, frame, channel, z_min, z_max):
   """ From a VirtualStack that is a hyperstack, contained in imp,
@@ -167,13 +167,13 @@ def subtract_Point3f(p1, p2):
 def shift_between_rois(roi2, roi1):
   """ computes the relative xy shift between two rois 
   """ 
-  dr = Point3f(0,0,0)
-  dr.x = roi2.getBounds().x - roi1.getBounds().x
-  dr.y = roi2.getBounds().y - roi1.getBounds().y
-  dr.z = 0
-  return dr
+  shift = [0,0,0]
+  shift[0] = roi2.getBounds().x - roi1.getBounds().x
+  shift[1] = roi2.getBounds().y - roi1.getBounds().y
+  shift[2] = 0
+  return shift
 
-def shift_roi(imp, roi, dr):
+def shift_roi(imp, roi, shift):
   """ shifts a roi in x,y by dr.x and dr.y
   if the shift would cause the roi to be outside the imp,
   it only shifts as much as possible maintaining the width and height
@@ -186,20 +186,23 @@ def shift_roi(imp, roi, dr):
     # init x,y coordinates of new shifted roi
     sx = 0
     sy = 0
+
     # x shift
-    if (r.x + dr.x) < 0:
+    if (r.x + shift[0]) < 0:
       sx = 0
-    elif (r.x + dr.x + r.width) > imp.width: 
+    elif (r.x + shift[0] + r.width) > imp.width:
       sx = int(imp.width-r.width)
     else:
-      sx = r.x + int(dr.x)
+      sx = r.x + int(shift[0])
+
     # y shift
-    if (r.y + dr.y) < 0:
+    if (r.y + shift[1]) < 0:
       sy = 0
-    elif (r.y + dr.y + r.height) > imp.height: 
+    elif (r.y + shift[1] + r.height) > imp.height:
       sy = int(imp.height-r.height)
     else:
-      sy = r.y + int(dr.y)
+      sy = r.y + int(shift[1])
+
     # return shifted roi
     shifted_roi = Roi(sx, sy, r.width, r.height)
     return shifted_roi   
@@ -220,7 +223,7 @@ def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
   if shifts == None:
     shifts = []
     for t in range(nt):
-      shifts.append(Point3f(0,0,0))
+      shifts.append([0,0,0])
   # compute shifts
   IJ.showProgress(0)
   max_shifts = options['max_shifts']
@@ -243,33 +246,68 @@ def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
 
     if roi: # total shift is shift of rois plus measured drift
       #print "correcting measured drift of",local_new_shift,"for roi shift:",shift_between_rois(roi2, roi1)
-      local_new_shift = add_Point3f(local_new_shift, shift_between_rois(roi2, roi1))
+      local_new_shift = add(local_new_shift, shift_between_rois(roi2, roi1))
     # determine the shift that we knew alrady
-    local_shift = subtract_Point3f(shifts[t],shifts[t-dt])
+    local_shift = subtract(shifts[t],shifts[t-dt])
     # compute difference between new and old measurement (which come from different dt)   
-    add_shift = subtract_Point3f(local_new_shift,local_shift)
+    add_shift = add(local_new_shift,local_shift)
     #print "++ old shift between %s and %s: dx=%s, dy=%s, dz=%s" % (int(t-dt+1),int(t+1),local_shift.x,local_shift.y,local_shift.z)
     #print "++ add shift between %s and %s: dx=%s, dy=%s, dz=%s" % (int(t-dt+1),int(t+1),add_shift.x,add_shift.y,add_shift.z)
     # update shifts from t-dt to the end (assuming that the measured local shift will presist till the end)
-    for i,tt in enumerate(range(t-dt,nt)):
-      # for i>dt below expression basically is a linear drift predicition for the frames at tt>t
+    for i,s in enumerate(range(t-dt,nt)):
+      # for i>dt below expression is a linear prediction for the frames at s>t
       # this is only important for predicting the best shift of the ROI 
       # the drifts for i>dt will be corrected by the next measurements
-      shifts[tt].x += 1.0*i/dt * add_shift.x
-      shifts[tt].y += 1.0*i/dt * add_shift.y
-      shifts[tt].z += 1.0*i/dt * add_shift.z
+      shifts[s] = add( shifts[s], mul( add_shift, 1.0*i/dt ) )
       #print "updated shift till frame",tt+1,"is",shifts[tt].x,shifts[tt].y,shifts[tt].z
     IJ.showProgress(1.0*t/(nt+1))
   
   IJ.showProgress(1)
   return shifts
 
+def subtract( aa, bb ):
+  return [ a-b for (a,b) in zip(aa,bb) ]
+
+def add( aa, bb ):
+  return [ a+b for (a,b) in zip(aa,bb) ]
+
+def mul( aa, x ):
+  return [ x * a for a in aa ]
 
 def restricting_shifts_to_maximal_shifts(local_new_shift, max_shifts):
-  for i in range(3):
-    if local_new_shift[i] > max_shifts[i]:
-      IJ.log("Too large drift along dimension " + i + ":  " + local_new_shift[i] + "; restricting to " + max_shifts[i]);
-      local_new_shift[i] = max_shifts[i]
+  for d in range(3):
+    if local_new_shift[d] > max_shifts[d]:
+      IJ.log("Too large drift along dimension " + str(d)
+             + ":  " + str(local_new_shift[d])
+             + "; restricting to " + str(int(max_shifts[d])))
+      local_new_shift[d] = max_shifts[d]
+
+
+def get_Point3i(point, dimension):
+  if dimension == 0:
+    return point.x
+  if dimension == 1:
+    return point.y
+  if dimension == 2:
+    return point.z
+  else:
+    IJ.log("Tried to get Point3f at coordinate " + str( dimension ))
+    #raise
+
+
+def set_Point3i(point, dimension, value):
+  if dimension == 0:
+    point.x = int(value)
+    return
+  if dimension == 1:
+    point.y = int(value)
+    return
+  if dimension == 2:
+    point.z = int(value)
+    return
+  else:
+    IJ.log("Tried to set Point3f at coordinate " + str( dimension ))
+    #raise
 
 
 def convert_shifts_to_integer(shifts):
@@ -277,6 +315,7 @@ def convert_shifts_to_integer(shifts):
   for shift in shifts: 
     int_shifts.append(Point3i(int(round(shift.x)),int(round(shift.y)),int(round(shift.z)))) 
   return int_shifts
+
 
 def compute_min_max(shifts):
   """ Find out the top left up corner, and the right bottom down corner,
@@ -549,9 +588,9 @@ def getOptions(imp):
   gd.addNumericField("Only consider pixels with values larger than:", 0, 0)
   gd.addNumericField("Lowest z plane to take into account:", 1, 0)
   gd.addNumericField("Highest z plane to take into account:", imp.getNSlices(), 0)
-  gd.addNumericField("Max_shift_x [pixels]:", 10, imp.getWidth())
-  gd.addNumericField("Max_shift_y [pixels]:", 10, imp.getHeight())
-  gd.addNumericField("Max_shift_z [pixels]:", 10, imp.getNSlices())
+  gd.addNumericField("Max_shift_x [pixels]:", imp.getWidth(), 0)
+  gd.addNumericField("Max_shift_y [pixels]:", imp.getHeight(), 0)
+  gd.addNumericField("Max_shift_z [pixels]:", imp.getNSlices(), 0)
   gd.addCheckbox("Use virtualstack for saving the results to disk to save RAM?", False)
   gd.addCheckbox("Only compute drift vectors?", False)
   gd.addMessage("If you put a ROI, drift will only be computed in this region;\n the ROI will be moved along with the drift to follow your structure of interest.")
