@@ -39,6 +39,9 @@
 # - macro recording is compatible with previous version
 # 21/11/16
 # - fixed a bug related to hyperstack conversion
+# 06/02/20
+# - add field to specify a maximal drift
+
 
 from ij import VirtualStack, IJ, CompositeImage, ImageStack, ImagePlus
 from ij.process import ColorProcessor
@@ -123,26 +126,26 @@ def extract_frame(imp, frame, channel, z_min, z_max):
   return stack2
 
 
-def extract_frame_process_roi(imp, frame, channel, process, background, roi, z_min, z_max, correct_only_xy):
+def extract_frame_process_roi(imp, frame, roi, options):
   # extract frame and channel 
-  imp_frame = ImagePlus("", extract_frame(imp, frame, channel, z_min, z_max)).duplicate()
+  imp_frame = ImagePlus("", extract_frame(imp, frame, options['channel'], options['z_min'], options['z_max'])).duplicate()
   # check for roi and crop
   if roi != None:
     #print roi.getBounds()
     imp_frame.setRoi(roi)
     IJ.run(imp_frame, "Crop", "")
   # subtract background  
-  if background > 0:
+  if options['background'] > 0:
     #IJ.log("Subtracting "+str(background));
-    IJ.run(imp_frame, "Subtract...", "value="+str(background)+" stack");
+    IJ.run(imp_frame, "Subtract...", "value="+str(options['background'])+" stack");
   # enhance edges  
-  if process:
+  if options['process']:
     IJ.run(imp_frame, "Mean 3D...", "x=1 y=1 z=0");
     IJ.run(imp_frame, "Find Edges", "stack");
-  # project into 2D
+  # project into 2D if we only want to correct the drift in x and y
   if imp_frame.getNSlices() > 1:
-    if correct_only_xy:
-      imp_frame = ZProjector.run( imp_frame, "avg");
+    if options['correct_only_xy']:
+      imp_frame = ZProjector.run(imp_frame, "avg");
   # return
   return imp_frame
 
@@ -201,7 +204,7 @@ def shift_roi(imp, roi, dr):
     shifted_roi = Roi(sx, sy, r.width, r.height)
     return shifted_roi   
   
-def compute_and_update_frame_translations_dt(imp, channel, dt, process, background, z_min, z_max, correct_only_xy, shifts = None):
+def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
   """ imp contains a hyper virtual stack, and we want to compute
   the X,Y,Z translation between every t and t+dt time points in it
   using the given preferred channel. 
@@ -220,21 +223,24 @@ def compute_and_update_frame_translations_dt(imp, channel, dt, process, backgrou
       shifts.append(Point3f(0,0,0))
   # compute shifts
   IJ.showProgress(0)
+  max_shifts = options['max_shifts']
   for t in range(dt, nt+dt, dt):
     if t > nt-1: # together with above range till nt+dt this ensures that the last data points are not missed out
       t = nt-1 # nt-1 is the last shift (0-based)
     IJ.log("      between frames "+str(t-dt+1)+" and "+str(t+1))      
     # get (cropped and processed) image at t-dt
     roi1 = shift_roi(imp, roi, shifts[t-dt])
-    imp1 = extract_frame_process_roi(imp, t+1-dt, channel, process, background, roi1, z_min, z_max, correct_only_xy)
+    imp1 = extract_frame_process_roi(imp, t+1-dt, roi1, options)
     # get (cropped and processed) image at t-dt
     roi2 = shift_roi(imp, roi, shifts[t])
-    imp2 = extract_frame_process_roi(imp, t+1, channel, process, background, roi2, z_min, z_max, correct_only_xy)
+    imp2 = extract_frame_process_roi(imp, t+1, roi2, options)
     #if roi:
     #  print "ROI at frame",t-dt+1,"is",roi1.getBounds()   
     #  print "ROI at frame",t+1,"is",roi2.getBounds()   
     # compute shift
     local_new_shift = compute_shift(imp2, imp1)
+    restricting_shifts_to_maximal_shifts(local_new_shift, max_shifts)
+
     if roi: # total shift is shift of rois plus measured drift
       #print "correcting measured drift of",local_new_shift,"for roi shift:",shift_between_rois(roi2, roi1)
       local_new_shift = add_Point3f(local_new_shift, shift_between_rois(roi2, roi1))
@@ -257,6 +263,13 @@ def compute_and_update_frame_translations_dt(imp, channel, dt, process, backgrou
   
   IJ.showProgress(1)
   return shifts
+
+
+def restricting_shifts_to_maximal_shifts(local_new_shift, max_shifts):
+  for i in range(3):
+    if local_new_shift[i] > max_shifts[i]:
+      IJ.log("Too large drift along dimension " + i + ":  " + local_new_shift[i] + "; restricting to " + max_shifts[i]);
+      local_new_shift[i] = max_shifts[i]
 
 
 def convert_shifts_to_integer(shifts):
@@ -536,23 +549,33 @@ def getOptions(imp):
   gd.addNumericField("Only consider pixels with values larger than:", 0, 0)
   gd.addNumericField("Lowest z plane to take into account:", 1, 0)
   gd.addNumericField("Highest z plane to take into account:", imp.getNSlices(), 0)
+  gd.addNumericField("Max_shift_x [pixels]:", 10, imp.getWidth())
+  gd.addNumericField("Max_shift_y [pixels]:", 10, imp.getHeight())
+  gd.addNumericField("Max_shift_z [pixels]:", 10, imp.getNSlices())
   gd.addCheckbox("Use virtualstack for saving the results to disk to save RAM?", False)
   gd.addCheckbox("Only compute drift vectors?", False)
   gd.addMessage("If you put a ROI, drift will only be computed in this region;\n the ROI will be moved along with the drift to follow your structure of interest.")
   gd.showDialog()
   if gd.wasCanceled():
     return
-  channel = gd.getNextChoiceIndex() + 1  # zero-based
-  correct_only_xy = gd.getNextBoolean()
-  multi_time_scale = gd.getNextBoolean()
-  subpixel = gd.getNextBoolean()
-  process = gd.getNextBoolean()
-  background = gd.getNextNumber()
-  z_min = gd.getNextNumber()
-  z_max = gd.getNextNumber()
-  virtual = gd.getNextBoolean()
-  only_compute = gd.getNextBoolean()
-  return channel, virtual, multi_time_scale, subpixel, process, background, z_min, z_max, only_compute, correct_only_xy
+  options = {}
+  options['channel'] = gd.getNextChoiceIndex() + 1  # zero-based
+  options['correct_only_xy'] = gd.getNextBoolean()
+  options['multi_time_scale'] = gd.getNextBoolean()
+  options['subpixel'] = gd.getNextBoolean()
+  options['process'] = gd.getNextBoolean()
+  options['background'] = gd.getNextNumber()
+  options['z_min'] = gd.getNextNumber()
+  options['z_max'] = gd.getNextNumber()
+  max_shifts = [0,0,0]
+  max_shifts[0] = gd.getNextNumber()
+  max_shifts[1] = gd.getNextNumber()
+  max_shifts[2] = gd.getNextNumber()
+  options['max_shifts'] = max_shifts
+  options['virtual'] = gd.getNextBoolean()
+  options['only_compute'] = gd.getNextBoolean()
+  return options
+
 
 def save_shifts(shifts, roi):
   sd = SaveDialog('please select shift file for saving', 'shifts', '.txt')
@@ -582,20 +605,18 @@ def run():
     return
 
   options = getOptions(imp)
-  if options is not None:
-    channel, virtual, multi_time_scale, subpixel, process, background, z_min, z_max, only_compute, correct_only_xy = options
-  else:
+  if options is None:
     return # user pressed Cancel
 
-  if z_min < 1:
+  if options['z_min'] < 1:
     IJ.showMessage("The minimal z plane must be >=1.")
     return
     
-  if z_max > imp.getNSlices():
+  if options['z_max'] > imp.getNSlices():
     IJ.showMessage("Your image only has "+str(imp.getNSlices())+" z-planes, please adapt your z-range.")
     return
   
-  if virtual is True:
+  if options['virtual'] is True:
     dc = DirectoryChooser("Choose target folder to save image sequence")
     target_folder = dc.getDirectory()
     if target_folder is None:
@@ -605,14 +626,16 @@ def run():
   else:
     target_folder = None 
 
-  # compute shifts
-  IJ.log("  computing drifts..."); #print("\nCOMPUTING SHIFTS:")
+  #
+  # compute drift
+  #
+  IJ.log("  computing drift...");
 
   IJ.log("    at frame shifts of 1"); 
-  dt = 1; shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background, z_min, z_max, correct_only_xy)
+  dt = 1; shifts = compute_and_update_frame_translations_dt(imp, dt, options)
   
   # multi-time-scale computation
-  if multi_time_scale is True:
+  if options['multi_time_scale'] is True:
     dt_max = imp.getNFrames()-1
     # computing drifts on exponentially increasing time scales 3^i up to 3^6
     # ..one could also do this with 2^i or 4^i
@@ -621,10 +644,10 @@ def run():
     for dt in dts:
       if dt < dt_max:
         IJ.log("    at frame shifts of "+str(dt)) 
-        shifts = compute_and_update_frame_translations_dt(imp, channel, dt, process, background, z_min, z_max, correct_only_xy, shifts)
+        shifts = compute_and_update_frame_translations_dt(imp, dt, options, shifts)
       else: 
         IJ.log("    at frame shifts of "+str(dt_max));
-        shifts = compute_and_update_frame_translations_dt(imp, channel, dt_max, process, background, z_min, z_max, correct_only_xy, shifts)
+        shifts = compute_and_update_frame_translations_dt(imp, dt_max, options, shifts)
         break
 
   # invert measured shifts to make them the correction
@@ -633,17 +656,17 @@ def run():
   
   
   # apply shifts
-  if not only_compute:
+  if not options['only_compute']:
     
     IJ.log("  applying shifts..."); #print("\nAPPLYING SHIFTS:")
     
-    if subpixel:
-      registered_imp = register_hyperstack_subpixel(imp, channel, shifts, target_folder, virtual)
+    if options['subpixel']:
+      registered_imp = register_hyperstack_subpixel(imp, options['channel'], shifts, target_folder, options['virtual'])
     else:
       shifts = convert_shifts_to_integer(shifts)
-      registered_imp = register_hyperstack(imp, channel, shifts, target_folder, virtual)
+      registered_imp = register_hyperstack(imp, options['channel'], shifts, target_folder, options['virtual'])
       
-    if virtual is True:
+    if options['virtual'] is True:
       if 1 == imp.getNChannels():
         ip=imp.getProcessor()
         ip2=registered_imp.getProcessor()
