@@ -296,17 +296,18 @@ def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
 
 def limit_shifts_to_maximal_shifts(local_new_shift, max_shifts):
   for d in range(3):
-    if get_Point3i(local_new_shift, d) > max_shifts[d]:
+    shift = get_Point3i(local_new_shift, d)
+    if shift > max_shifts[d]:
       IJ.log("Too large drift along dimension " + str(d)
-         + ":  " + str(local_new_shift[d])
+         + ":  " + str(shift)
          + "; restricting to " + str(int(max_shifts[d])))
-      set_Point3i(local_new_shift, int(max_shifts[d]))
+      set_Point3i(local_new_shift, d, int(max_shifts[d]))
       continue
-    if get_Point3i(local_new_shift, d) < -1 * max_shifts[d]:
+    if shift < -1 * max_shifts[d]:
       IJ.log("Too large drift along dimension " + str(d)
-         + ":  " + str(local_new_shift[d])
+         + ":  " + str(shift)
          + "; restricting to " + str(int(-1 * max_shifts[d])))
-      set_Point3i(local_new_shift, int(-1 * max_shifts[d]))
+      set_Point3i(local_new_shift, d, int(-1 * max_shifts[d]))
       continue
 
 def convert_shifts_to_integer(shifts):
