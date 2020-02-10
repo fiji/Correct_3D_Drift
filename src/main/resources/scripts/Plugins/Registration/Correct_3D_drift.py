@@ -166,6 +166,31 @@ def subtract_Point3f(p1, p2):
   return p3
 
 
+def get_Point3i(point, dimension):
+  if dimension == 0:
+    return point.x
+  if dimension == 1:
+    return point.y
+  if dimension == 2:
+    return point.z
+  else:
+    IJ.log("Tried to get Point3f at coordinate " + str( dimension ))
+
+
+def set_Point3i(point, dimension, value):
+  if dimension == 0:
+    point.x = int(value)
+    return
+  if dimension == 1:
+    point.y = int(value)
+    return
+  if dimension == 2:
+    point.z = int(value)
+    return
+  else:
+    IJ.log("Tried to set Point3f at coordinate " + str( dimension ))
+
+
 def shift_between_rois(roi2, roi1):
   """ computes the relative xy shift between two rois 
   """ 
@@ -271,17 +296,17 @@ def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
 
 def limit_shifts_to_maximal_shifts(local_new_shift, max_shifts):
   for d in range(3):
-    if  local_new_shift[d] > max_shifts[d]:
+    if get_Point3i(local_new_shift, d) > max_shifts[d]:
       IJ.log("Too large drift along dimension " + str(d)
          + ":  " + str(local_new_shift[d])
          + "; restricting to " + str(int(max_shifts[d])))
-      local_new_shift[d] = int(max_shifts[d])
+      set_Point3i(local_new_shift, int(max_shifts[d]))
       continue
-    if local_new_shift[d] < -1 * max_shifts[d]:
+    if get_Point3i(local_new_shift, d) < -1 * max_shifts[d]:
       IJ.log("Too large drift along dimension " + str(d)
          + ":  " + str(local_new_shift[d])
          + "; restricting to " + str(int(-1 * max_shifts[d])))
-      local_new_shift[d] = int(-1 * max_shifts[d])
+      set_Point3i(local_new_shift, int(-1 * max_shifts[d]))
       continue
 
 def convert_shifts_to_integer(shifts):
