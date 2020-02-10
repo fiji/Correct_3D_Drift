@@ -149,12 +149,14 @@ def extract_frame_process_roi(imp, frame, roi, options):
   # return
   return imp_frame
 
+
 def add_Point3f(p1, p2):
   p3 = Point3f(0,0,0)
   p3.x = p1.x + p2.x
   p3.y = p1.y + p2.y
   p3.z = p1.z + p2.z
   return p3
+
 
 def subtract_Point3f(p1, p2):
   p3 = Point3f(0,0,0)
@@ -172,6 +174,7 @@ def shift_between_rois(roi2, roi1):
   dr.y = roi2.getBounds().y - roi1.getBounds().y
   dr.z = 0
   return dr
+
 
 def shift_roi(imp, roi, dr):
   """ shifts a roi in x,y by dr.x and dr.y
@@ -203,7 +206,8 @@ def shift_roi(imp, roi, dr):
     # return shifted roi
     shifted_roi = Roi(sx, sy, r.width, r.height)
     return shifted_roi   
-  
+
+
 def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
   """ imp contains a hyper virtual stack, and we want to compute
   the X,Y,Z translation between every t and t+dt time points in it
@@ -239,7 +243,7 @@ def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
     #  print "ROI at frame",t+1,"is",roi2.getBounds()   
     # compute shift
     local_new_shift = compute_shift(imp2, imp1)
-    restricting_shifts_to_maximal_shifts(local_new_shift, max_shifts)
+    limit_shifts_to_maximal_shifts(local_new_shift, max_shifts)
 
     if roi: # total shift is shift of rois plus measured drift
       #print "correcting measured drift of",local_new_shift,"for roi shift:",shift_between_rois(roi2, roi1)
@@ -265,12 +269,20 @@ def compute_and_update_frame_translations_dt(imp, dt, options, shifts = None):
   return shifts
 
 
-def restricting_shifts_to_maximal_shifts(local_new_shift, max_shifts):
-  for i in range(3):
-    if local_new_shift[i] > max_shifts[i]:
-      IJ.log("Too large drift along dimension " + i + ":  " + local_new_shift[i] + "; restricting to " + max_shifts[i]);
-      local_new_shift[i] = max_shifts[i]
-
+def limit_shifts_to_maximal_shifts(local_new_shift, max_shifts):
+  for d in range(3):
+    if  local_new_shift[d] > max_shifts[d]:
+      IJ.log("Too large drift along dimension " + str(d)
+         + ":  " + str(local_new_shift[d])
+         + "; restricting to " + str(int(max_shifts[d])))
+      local_new_shift[d] = int(max_shifts[d])
+      continue
+    if local_new_shift[d] < -1 * max_shifts[d]:
+      IJ.log("Too large drift along dimension " + str(d)
+         + ":  " + str(local_new_shift[d])
+         + "; restricting to " + str(int(-1 * max_shifts[d])))
+      local_new_shift[d] = int(-1 * max_shifts[d])
+      continue
 
 def convert_shifts_to_integer(shifts):
   int_shifts = []
@@ -297,12 +309,14 @@ def compute_min_max(shifts):
     maxz = max(maxz, shift.z)  
   return minx, miny, minz, maxx, maxy, maxz
 
+
 def zero_pad(num, digits):
   """ for 34, 4 --> '0034' """
   str_num = str(num)
   while (len(str_num) < digits):
     str_num = '0' + str_num
   return str_num
+
 
 def invert_shifts(shifts):
   """ invert shifts such that they can be used for correction.
