@@ -310,11 +310,13 @@ def limit_shifts_to_maximal_shifts(local_new_shift, max_shifts):
       set_Point3i(local_new_shift, d, int(-1 * max_shifts[d]))
       continue
 
+
 def convert_shifts_to_integer(shifts):
   int_shifts = []
   for shift in shifts: 
     int_shifts.append(Point3i(int(round(shift.x)),int(round(shift.y)),int(round(shift.z)))) 
   return int_shifts
+
 
 def compute_min_max(shifts):
   """ Find out the top left up corner, and the right bottom down corner,
@@ -354,9 +356,8 @@ def invert_shifts(shifts):
   return shifts
 
 
-def register_hyperstack(imp, channel, shifts, target_folder, virtual):
-  """ Takes the imp, determines the x,y,z drift for each pair of time points, using the preferred given channel,
-  and outputs as a hyperstack."""
+def register_hyperstack(imp, shifts, target_folder, virtual):
+  """ Applies the shifts to all channels in the hyperstack."""
   # Compute bounds of the new volume,
   # which accounts for all translations:
   minx, miny, minz, maxx, maxy, maxz = compute_min_max(shifts)
@@ -704,7 +705,7 @@ def run():
       registered_imp = register_hyperstack_subpixel(imp, options['channel'], shifts, target_folder, options['virtual'])
     else:
       shifts = convert_shifts_to_integer(shifts)
-      registered_imp = register_hyperstack(imp, options['channel'], shifts, target_folder, options['virtual'])
+      registered_imp = register_hyperstack(imp, shifts, target_folder, options['virtual'])
       
     if options['virtual'] is True:
       if 1 == imp.getNChannels():
