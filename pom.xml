@@ -11,7 +11,7 @@
 
 	<groupId>sc.fiji</groupId>
 	<artifactId>Correct_3D_Drift</artifactId>
-	<version>1.0.7-SNAPSHOT</version>
+	<version>1.0.7</version>
 
 	<name>Correct 3D Drift</name>
 	<description>Script to register time frames (stacks) to each other.</description>
@@ -80,7 +80,7 @@
 	<scm>
 		<connection>scm:git:https://github.com/fiji/Correct_3D_Drift</connection>
 		<developerConnection>scm:git:git@github.com:fiji/Correct_3D_Drift</developerConnection>
-		<tag>HEAD</tag>
+		<tag>Correct_3D_Drift-1.0.7</tag>
 		<url>https://github.com/fiji/Correct_3D_Drift</url>
 	</scm>
 	<issueManagement>
