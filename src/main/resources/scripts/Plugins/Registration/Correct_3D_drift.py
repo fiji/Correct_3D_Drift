@@ -50,8 +50,8 @@ from ij.io import DirectoryChooser, FileSaver, SaveDialog
 from ij.gui import GenericDialog, YesNoCancelDialog, Roi
 from mpicbg.imglib.image import ImagePlusAdapter
 from mpicbg.imglib.algorithm.fft import PhaseCorrelation
-from org.scijava.vecmath import Point3i  #from javax.vecmath import Point3i # java6
-from org.scijava.vecmath import Point3f  #from javax.vecmath import Point3f # java6
+from org.jogamp.vecmath import Point3i
+from org.jogamp.vecmath import Point3f
 from java.io import File, FilenameFilter
 from java.lang import Integer
 import math, os, os.path
