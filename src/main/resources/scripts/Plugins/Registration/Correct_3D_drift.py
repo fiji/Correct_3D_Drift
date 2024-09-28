@@ -2,7 +2,7 @@
 # #%L
 # Script to register time frames (stacks) to each other.
 # %%
-# Copyright (C) 2010 - 2020 Fiji developers.
+# Copyright (C) 2010 - 2024 Fiji developers.
 # %%
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as
